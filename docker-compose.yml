@@ -1,0 +1,57 @@
+version: "3.3"
+services:
+  backend:
+    image: flask-app
+    container_name: flask-app
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    volumes:
+      - ./app/client_secrets.json:/home/flaskuser/app/client_secrets.json
+      - ./app/static/:/home/flaskuser/app/static/
+    depends_on:
+      - keycloak
+    restart: unless-stopped
+
+  nginx:
+    container_name: nginx_proxy
+    image: nginx
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - backend
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/nginx.conf
+      - ./certbot/www:/var/www/certbot/:ro
+      - ./certbot/conf/:/etc/nginx/ssl/:ro
+      - ./params/:/etc/nginx/params/
+      - ./app/static/:/etc/nginx/static/
+    restart: unless-stopped
+
+  postgresql:
+    image: bitnami/postgresql:11
+    environment:
+      - POSTGRESQL_DATABASE=xxxx
+      - POSTGRESQL_USERNAME=xxxx
+      - POSTGRESQL_PASSWORD=xxxx
+    volumes:
+      - postgres-data:/bitnami/postgresql/
+    restart: unless-stopped
+
+  keycloak:
+    image: bitnami/keycloak:16
+    environment:
+      - KEYCLOAK_CREATE_ADMIN_USER=true
+      - KEYCLOAK_ADMIN_USER=xxxx
+      - KEYCLOAK_ADMIN_PASSWORD=xxxx
+      - KEYCLOAK_DATABASE_PASSWORD=xxxx
+      - KEYCLOAK_PROXY_ADDRESS_FORWARDING=true
+      - KC_PROXY=edge
+    depends_on:
+      - postgresql
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+    driver: local
